@@ -14,28 +14,31 @@
 
 ---
 
-## Resumo
+## 📌 Resumo
 
-Dashboard de análise do marketplace Olist, maior plataforma de e-commerce brasileiro, construído sobre o dataset público do Kaggle com 100 mil pedidos de 2017 a 2018.
+Projeto construído para praticar ETL em SQL usando o dataset público do Olist — o maior marketplace brasileiro — com 100 mil pedidos de 2017 a 2018.
 
-O objetivo era ir além da análise exploratória padrão e construir um produto analítico completo — com uma camada SQL intermediária que organiza os dados antes de chegarem ao Power BI, cards de KPI customizados em SVG gerados por DAX, e comparativos YOY que se suprimem automaticamente quando o período anterior é insuficiente para comparação.
+A ideia foi criar uma camada SQL intermediária real antes dos dados chegarem ao Power BI: views com filtros de qualidade, funções de normalização, CTEs para resolver problemas da fonte e separação clara de grain por tabela de fato. O Power BI consome essas views e adiciona as métricas, comparativos YOY e os visuais customizados em SVG.
 
-O resultado são quatro páginas que permitem entender a operação de ponta a ponta: receita por categoria e estado, SLA logístico por região, performance por vendedor, e satisfação dos clientes correlacionada com pontualidade de entrega.
+O resultado são quatro páginas que cobrem a operação de ponta a ponta: receita por categoria e estado, SLA logístico por região, performance por vendedor e satisfação dos clientes cruzada com pontualidade de entrega.
+
+## 🔗 Ver Dashboard Online
+
+[![Power BI](https://img.shields.io/badge/Power%20BI-Abrir%20Dashboard-F2C811?style=for-the-badge&logo=powerbi&logoColor=black)](https://app.powerbi.com/view?r=eyJrIjoiOTU5ZmQ0ZjgtMDk1NC00Yjc1LWIwOWItMTg2ZDRlNDcyMzBlIiwidCI6IjY1OWNlMmI4LTA3MTQtNDE5OC04YzM4LWRjOWI2MGFhYmI1NyJ9&pageName=b5340fed4ab16024cace)
 
 ---
 
-## O Que Ele Responde
+## 💡 O Que Ele Responde
 
 - Quais categorias e estados concentram a maior parte da receita?
 - A operação logística melhorou ou piorou ao longo dos meses?
 - Quais estados têm a maior taxa de atraso e o maior tempo médio de entrega?
 - Pedidos atrasados recebem avaliações piores do que pedidos no prazo?
 - Quais vendedores têm a maior receita média por pedido, e em quais cidades estão concentrados?
-- Como a receita e o volume de pedidos variaram mês a mês?
 
 ---
 
-## Páginas do Dashboard
+## 📊 Páginas do Dashboard
 
 | Página | O que entrega |
 |--------|---------------|
@@ -43,12 +46,6 @@ O resultado são quatro páginas que permitem entender a operação de ponta a p
 | **Comercial** | Evolução mensal da receita com variação MoM, ranking de categorias e participação por estado |
 | **Logística** | SLA mensal em p.p., ranking de estados por taxa de atraso e tempo médio de entrega vs. média global |
 | **Vendedores** | Receita total e média por estado e cidade, top categorias por receita média por vendedor |
-
----
-
-## 🔗 Ver Dashboard Online
-
-[![Power BI](https://img.shields.io/badge/Power%20BI-Abrir%20Dashboard-F2C811?style=for-the-badge&logo=powerbi&logoColor=black)](https://app.powerbi.com/view?r=eyJrIjoiOTU5ZmQ0ZjgtMDk1NC00Yjc1LWIwOWItMTg2ZDRlNDcyMzBlIiwidCI6IjY1OWNlMmI4LTA3MTQtNDE5OC04YzM4LWRjOWI2MGFhYmI1NyJ9&pageName=b5340fed4ab16024cace)
 
 ---
 
@@ -111,29 +108,26 @@ Kaggle Dataset (8 CSVs)
 
 ### Camada SQL — Por Que Existe
 
-As tabelas-fonte do Kaggle chegam brutas, sem qualquer tratamento. A camada SQL resolve quatro problemas antes dos dados chegarem ao Power BI:
+As 8 tabelas do Kaggle chegam brutas. A camada SQL resolve os problemas antes dos dados chegarem ao Power BI:
 
-**Filtros de qualidade obrigatórios** — das 99 mil ordens no banco, apenas pedidos com `status = 'delivered'` e data de entrega real preenchida entram no modelo. 2016 é excluído por ter apenas 267 pedidos delivered em 3 meses não consecutivos, sem valor analítico e distorcendo comparativos YOY.
-
-**Lógica de negócio encapsulada** — a `vw_comercial` usa CTEs internas para selecionar a forma de pagamento de maior valor em pedidos com múltiplos métodos (2.961 casos no banco). A `vw_logistica` usa window functions para somar o frete total de todos os itens enquanto colapsa para uma linha por pedido, e elege o vendedor principal por critério de maior frete individual.
-
-**Separação de responsabilidades** — SQL faz ETL e regras de negócio; Power Query faz transporte; DAX faz cálculo dinâmico. Quando uma regra muda, altera-se a view, não o `.pbix`.
-
-**Grain explícito por tabela de fato** — cada view tem um grain diferente e não intercambiável: `vw_comercial` e `vw_vendedores` são pedido × item (109.872 linhas), `vw_logistica` é pedido (96.203 linhas), `vw_avaliacoes` é avaliação (96.087 linhas).
+| Problema na fonte | Solução na view |
+|-------------------|----------------|
+| Pedidos cancelados, em trânsito ou sem data de entrega real distorcem métricas | Filtro `status = 'delivered'` + `order_delivered_customer_date IS NOT NULL` em todas as facts |
+| 2016 tem só 267 pedidos em 3 meses não consecutivos — distorce YOY | Filtro `>= '2017-01-01'` centralizado em cada view |
+| 2.961 pedidos com múltiplos métodos de pagamento — JOIN direto multiplicaria linhas | CTE com `ROW_NUMBER()` na `vw_comercial` elege o pagamento de maior valor por pedido |
+| 1.278 pedidos com múltiplos vendedores — frete é por item, não por pedido | CTEs com `SUM() OVER` + `ROW_NUMBER()` na `vw_logistica` somam frete total e elegem vendedor principal |
+| `seller_city` com typos, CEPs e padrões como `carapicuiba / sao paulo` | `fn_LimpaCidade` centraliza 18 correções usadas por duas views sem duplicar lógica |
+| Translation table do Kaggle traduz categorias para inglês, não português | `dim_categoria` com mapeamento manual de 74 categorias para PT-BR |
 
 ---
 
 ### Modelagem — Decisões Relevantes
 
-**4 facts separadas em vez de uma única** — grains diferentes exigem tabelas diferentes. Misturar pedido × item com pedido geraria dupla contagem em qualquer métrica de entrega. Com facts separadas, `COUNTROWS` e `SUM` operam direto no grain correto.
+**4 facts com grains diferentes** — `vw_comercial` e `vw_vendedores` são pedido × item (109.872 linhas), `vw_logistica` é pedido (96.203) e `vw_avaliacoes` é avaliação (96.087). Grains diferentes exigem tabelas separadas — misturá-los geraria dupla contagem em qualquer métrica.
 
-**`Dim_Estado` com relacionamento inativo em `Fact_Logistica`** — o modelo tem dois campos de estado em logística (cliente e vendedor). O relacionamento ativo usa `Estado Cliente`; as medidas de logística por estado ativam o relacionamento explicitamente via `USERELATIONSHIP`, dando controle preciso sobre qual coluna está sendo filtrada em cada visual.
+**`Dim_Estado` com relacionamento inativo em `Fact_Logistica`** — o modelo precisa filtrar logística por estado do cliente e por estado do vendedor. O relacionamento ativo usa `Estado Cliente`; as medidas de logística por estado ativam o segundo via `USERELATIONSHIP`, dando controle preciso sobre qual coluna está sendo filtrada em cada visual.
 
-**`TREATAS` para cruzar avaliações com logística** — `Fact_Avaliacoes` e `Fact_Logistica` compartilham `pedido_id` mas não têm relacionamento no modelo (facts não se relacionam entre si em star schema). `Score Médio No Prazo` e `Score Médio Atrasados` usam `TREATAS` para criar uma relação virtual em tempo de query, sem poluir o modelo com relacionamentos entre fatos.
-
-**`Dim_Calendario` em DAX** — tabela calculada via `CALENDAR() + ADDCOLUMNS` com 26 colunas de contexto temporal. Marcada como Date Table, com Auto date/time desabilitado.
-
-**`dim_categoria` como tabela física** — a translation table do Kaggle traduz para inglês, não português. As 74 categorias com labels em PT-BR foram mapeadas manualmente e armazenadas como tabela física com `PRIMARY KEY` e `UNIQUE KEY`. As views de fato joinam por `categoria_raw` (snake_case da fonte).
+**`TREATAS` para cruzar avaliações com logística** — `Fact_Avaliacoes` e `Fact_Logistica` compartilham `pedido_id` mas facts não se relacionam entre si em star schema. `Score Médio No Prazo` e `Score Médio Atrasados` usam `TREATAS` para criar a relação em tempo de query sem adicionar relacionamentos entre fatos.
 
 ---
 
@@ -148,7 +142,7 @@ As tabelas-fonte do Kaggle chegam brutas, sem qualquer tratamento. A camada SQL 
 | `Vendedores\Calculos` | Total vendedores, receita média, pedidos por vendedor |
 | `Avaliacoes\Calculos` | Score médio, Score No Prazo e Score Atrasados via `TREATAS` |
 | `*/Eixo` | Teto e piso dinâmicos de eixo Y via `fxEixoMax` / `fxEixoMin` |
-| `*/Imagens` | Cards KPI, donut de distribuição de score — todos em SVG via DAX |
+| `*/Imagens` | Cards KPI e donut de distribuição de score em SVG gerado por DAX |
 | `Config\Cores` | 12 medidas `Cfg *` com HEX — paleta global propagada para todos os SVGs |
 
 **7 User Defined Functions (DAX Preview):**
@@ -159,24 +153,31 @@ As tabelas-fonte do Kaggle chegam brutas, sem qualquer tratamento. A camada SQL 
 | `fxFormatoRotulo(Valor)` | Igual, sem prefixo `R$` — para rótulos de gráficos de linha |
 | `fxEixoMax(Valor, Buffer)` | Teto do eixo Y arredondado com buffer percentual |
 | `fxEixoMin(Valor, Buffer)` | Piso do eixo Y para valores negativos |
-| `fxSvgMontarCard(...)` | Gera SVG de card KPI com ícone, seta animada e subtexto contextual |
+| `fxSvgMontarCard(...)` | Gera SVG de card KPI com ícone, seta animada via CSS e subtexto contextual |
 | `fxSvgMontarDonut(...)` | Gera SVG de donut com até 5 segmentos e legenda animada |
 | `fxSvgMontarGauge(...)` | Gera SVG de gauge semicircular com animação de crescimento |
 
-Os cards de KPI são implementados com SVG gerado dinamicamente pelo DAX e exibido via `dataCategory = ImageUrl`. Isso permite seta animada com CSS, subtexto contextual calculado em DAX, e supressão automática de comparação YOY quando o período anterior tem menos meses que o atual (`BaseInsuf`).
+Os cards KPI são implementados via `dataCategory = ImageUrl` com SVG gerado em DAX — permite seta animada, subtexto calculado e supressão automática de YOY quando o período anterior é insuficiente.
 
 ---
 
 ### Padrões Aplicados
 
-- ✅ Nomenclatura SQLBI: `Fact_`, `Dim_`, `_Medidas`
-- ✅ Formatação DAX via daxformatter.com — `VAR/RETURN` em todas as medidas não triviais
-- ✅ `DIVIDE()` onde denominador pode ser zero — nunca `+ 0` desnecessário
-- ✅ `FILTER(ALL())` em vez de `FILTER(table)` quando boolean resolve
-- ✅ Date Table marcada · Auto date/time desabilitado
-- ✅ Relacionamentos single direction como padrão — bidirecional apenas com justificativa
-- ✅ Chaves de relacionamento como string curta — sem GUID como chave
-- ✅ `TREATAS` para relacionamentos virtuais entre facts — sem relacionamentos diretos entre fatos
+| Padrão | Por quê |
+|--------|---------|
+| Nomenclatura SQLBI: `Fact_`, `Dim_`, `_Medidas` | Modelo autoexplicativo — qualquer analista entende a estrutura ao abrir |
+| `VAR/RETURN` em todas as medidas não triviais | Evita calcular a mesma expressão duas vezes e facilita leitura |
+| `DIVIDE()` onde denominador pode ser zero | Retorna BLANK em vez de erro — preserva a otimização de células vazias do VertiPaq |
+| `FILTER(ALL())` em vez de `FILTER(table)` | Evita iteração desnecessária quando um predicado booleano já resolve |
+| `USERELATIONSHIP` em vez de relacionamento bidirecional | Controle explícito de qual coluna está ativa em cada medida — sem efeitos colaterais no modelo |
+| Date Table marcada + Auto date/time desabilitado | Garante que as funções de time intelligence funcionem e remove hierarquias automáticas que inflam o modelo |
+| `Remove Other Columns` no Power Query | Protege o pipeline — se a fonte adicionar colunas, o refresh não quebra |
+
+---
+
+### Limitações Conhecidas
+
+**Qualidade de `customer_city`** — o campo vem em lowercase na fonte com variações de grafia não tratadas (ex: `santa barbara d'oeste` e `santa barbara d oeste` como entradas distintas). `seller_city` foi normalizada via `fn_LimpaCidade` porque é chave de análise de performance por vendedor. `customer_city` é usado apenas como texto descritivo nos gráficos — o impacto analítico das inconsistências é mínimo e corrigir exigiria uma estrutura de de-para que não faz sentido para uma base estática.
 
 </details>
 
