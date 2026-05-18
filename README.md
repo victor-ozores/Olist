@@ -16,7 +16,7 @@
 
 ## 📌 Resumo
 
-Projeto construído para praticar ETL em SQL usando o dataset público do Olist — o maior marketplace brasileiro — com 100 mil pedidos de 2017 a 2018.
+Projeto construído para praticar ETL em SQL usando o [dataset público do Olist no Kaggle](https://www.kaggle.com/datasets/olistbr/brazilian-ecommerce) — e-commerce brasileiro com cerca de 100 mil pedidos registrados entre 2016 e 2018.
 
 A ideia foi criar uma camada SQL intermediária real antes dos dados chegarem ao Power BI: views com filtros de qualidade, funções de normalização, CTEs para resolver problemas da fonte e separação clara de grain por tabela de fato. O Power BI consome essas views e adiciona as métricas, comparativos YOY e os visuais customizados em SVG.
 
@@ -177,7 +177,11 @@ Os cards KPI são implementados via `dataCategory = ImageUrl` com SVG gerado em 
 
 ### Limitações Conhecidas
 
+**2016 excluído da análise** — o dataset tem 329 pedidos em 2016, distribuídos em apenas 3 meses não consecutivos (setembro, outubro e dezembro). Incluí-los distorceria qualquer comparativo YOY e médias mensais sem agregar valor analítico. O período coberto é janeiro de 2017 a agosto de 2018.
+
 **Qualidade de `customer_city`** — o campo vem em lowercase na fonte com variações de grafia não tratadas (ex: `santa barbara d'oeste` e `santa barbara d oeste` como entradas distintas). `seller_city` foi normalizada via `fn_LimpaCidade` porque é chave de análise de performance por vendedor. `customer_city` é usado apenas como texto descritivo nos gráficos — o impacto analítico das inconsistências é mínimo e corrigir exigiria uma estrutura de de-para que não faz sentido para uma base estática.
+
+**Para reproduzir** — baixar o dataset em [kaggle.com/datasets/olistbr/brazilian-ecommerce](https://www.kaggle.com/datasets/olistbr/brazilian-ecommerce), importar os 8 CSVs para um banco `OLIST` no SQL Server e executar o `00_deploy.sql` incluído no repositório.
 
 </details>
 
