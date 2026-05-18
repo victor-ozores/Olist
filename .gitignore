@@ -1,0 +1,9 @@
+# Arquivos temporários do Excel
+~$*
+
+# Arquivo pessoal específico
+
+# Pastas de sistema e dados
+.idea/
+Data/
+.claude/
