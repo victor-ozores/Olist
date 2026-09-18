@@ -7,7 +7,7 @@
 **Power BI · SQL Server · DAX · Power Query**
 
 [![LinkedIn](https://img.shields.io/badge/LinkedIn-victor--ozores-0077B5?style=flat&logo=linkedin)](https://linkedin.com/in/victor-ozores/)
-[![Portfolio](https://img.shields.io/badge/Portfolio-xperiun-6C47FF?style=flat)](https://app.xperiun.com/in/victor-ozores)
+[![Portfolio](https://img.shields.io/badge/Portfolio-xperiun-6C47FF?style=flat)](https://app.xperiun.com/in/victor-ozores-2)
 [![GitHub](https://img.shields.io/badge/GitHub-victor--ozores-181717?style=flat&logo=github)](https://github.com/victor-ozores)
 
 </div>
